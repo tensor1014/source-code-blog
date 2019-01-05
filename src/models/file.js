@@ -12,9 +12,7 @@ export default {
     *getFile(action, {call, put}) {
       try {
         const { repoId, filePath } =  action.payload; 
-        console.warn(action.payload);
         const body = yield call(api.getFile, { params: { repoId, filePath }});
-        console.warn(body);
         yield put({ type: 'setCode', payload: body.content });
       } catch (err) {
         console.error(err);

@@ -24,7 +24,7 @@ class ContentPage extends React.Component {
           header
         </Header>
         <Layout style={{height: 700}}>
-          <Sider width={300}>
+          <Sider width={300} style={{overflow: 'auto'}}>
             <FileTree tree={this.props.file.tree}/>
           </Sider>
           <Content>

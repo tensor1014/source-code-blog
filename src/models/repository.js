@@ -17,15 +17,14 @@ export default {
       try {
         const params = { repoId: action.payload };
         const body = yield call(api.getRepositoryDetail, { params });
-        console.log(body);
         let { fileTree, points, repository } = body;
         fileTree = yaml.load(fileTree);
-
         yield put({ type: 'setCurrentRepo', payload: repository })
-        yield put({ type: 'file/setTree', payload: { name: 'root', children: fileTree } });
         yield put({ type: 'setPoints', payload: points });
         if (points.length > 0) {
-          yield put({ type: 'getPointDetail', payload: points[0].id });
+          yield put({ type: 'getPointDetail', payload: { pointId: points[0].id, tree: fileTree }});
+        } else {
+          yield put({ type: 'file/setTree', payload: { name: 'root', children: fileTree } });
         }
       } catch (err) {
         console.error(err);
@@ -34,9 +33,8 @@ export default {
     },
     *getPointDetail(action, {call, put, select}) {
       try {
-        const params = { pointId: action.payload };
+        const params = { pointId: action.payload.pointId };
         const pointDetail = yield call(api.getPointDetail, { params });
-        console.log(pointDetail);
         yield put({ type: 'setCurrentPoint', payload: pointDetail});
         const { point, nodes, files } = pointDetail;
         const currentNode = getDefaultNode(point, nodes);
@@ -51,15 +49,17 @@ export default {
         } else {
           console.warn('current node not found');
         }
-        let startT = +new Date();
-        const tree = yield select(state => state.file.tree);
+        let start = +new Date();
+        let tree = { name: 'root', children: action.payload.tree };
+        if (!action.payload.tree) {
+          tree = yield select(state => state.file.tree);
+        }
         if (tree && files) {
           const openTree = buildOpenTree(nodes, files);
-          console.warn(openTree);
           const newTree = toggleTree(tree, openTree);
           yield  put({ type: 'file/setTree', payload: newTree });
         }
-        console.warn('compute tree duration', +new Date() - startT);
+        console.warn('compute tree duration', +new Date() - start);
       } catch (err) {
         console.error(err)
         yield put(createErrorPayload(err, '获取知识点详情失败'));
@@ -102,7 +102,10 @@ function toggleTree(tree, openTree) {
       return aac;
     }, newTree);
   } else {  //  file
-    newTree.toggled = openTree[tree.name] === true;
+    if (openTree[tree.name] === true) {
+      newTree.toggled = true;
+      newTree.active = true;
+    }
   }
   return newTree;
 }
