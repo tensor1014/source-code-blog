@@ -18,6 +18,8 @@ const app = dva({
 app.model(require('./models/products').default);
 app.model(require('./models/repository').default);
 app.model(require('./models/file').default);
+app.model(require('./models/node').default);
+app.model(require('./models/point').default);
 
 // 4. Router
 app.router(require('./router').default);

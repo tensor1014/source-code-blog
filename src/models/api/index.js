@@ -68,6 +68,7 @@ export const createGitRepository = post('/api/repository');
 export const getRepositoryDetail = get('/api/repository/:repoId');
 export const getFile = get('/api/repository/:repoId/file/:filePath');
 export const getPointDetail = get('/api/point/:pointId');
+export const searchPointByTitle = get('/api/point');
 export const createPoint = post('/api/point');
 export const updatePoint = put('/api/point/:pointId');
 export const createNode = post('/api/point/:pointId/node');

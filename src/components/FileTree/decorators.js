@@ -12,7 +12,6 @@ export default Object.assign(
       const { height: h } = style;
       const l = 0.7071 * h; //  Math.pow(2, 0.5) / 2 * h
       const p = (h - l) * 0.5;
-      console.warn('h:', h, 'l:', l , 'p:', p);
       const points = `${p},${p} ${p+l/2},${h/2} ${p},${p+l}`;
       const s = Object.assign({}, style.base, {transformOrigin: '10% 60%'})
       return (

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Treebeard as Tree } from 'react-treebeard';
+import { Treebeard } from 'react-treebeard';
 import decorators from './decorators';
 import animations from './animations';
 
@@ -10,20 +10,30 @@ class FileTree extends React.Component {
   }
   onToggle = (node, toggled) => {
     node.active = true;
-    if (node.children) {
-      node.toggled = toggled;
+    if(node.children){ node.toggled = toggled; }
+    this.setState({});
+    if (node.name !== 'root' && !node.children) {
+      this.onFileChanged(node);
     }
-    this.setState({ cursor: node });
   }
   render() {
     return (
-      <Tree
+      <Treebeard
         data={this.props.tree || []}
         decorators={decorators}
         animations={animations}
         onToggle={this.onToggle}
       />
     );
+  }
+  onFileChanged = (node) => {
+    let path = node.name;
+    while(node.parent && node.parent.name !== 'root') {
+      node = node.parent;
+      path = node.name + '/' + path;
+    }
+    console.warn(path);
+    this.props.onFileChanged(path);
   }
 }
 
