@@ -1,4 +1,5 @@
 import React from 'react';
+import { connect } from 'dva';
 import { Drawer, Button, Row, Col, Input } from 'antd';
 import Highlight from 'react-highlight';
 import ReactMarkdown from 'react-markdown';
@@ -7,6 +8,8 @@ import { PlainItem, Item } from './Item';
 import PointDrawer from './PointEditor';
 import 'highlight.js/styles/github-gist.css';
 import './index.less';
+import { openFromNode } from '../../models/point';
+import { createAction } from '../../models/helper';
 
 const { TextArea } = Input;
 
@@ -14,16 +17,9 @@ const modeMap = {
   1: 'Create Node',
   2: 'Update Node',
 };
+const noBorder = { content: { border: 'none' }};
 
-export default class NodeEditor extends React.Component {
-  constructor(props) {
-    super(props);
-    const { title, content } = this.props;
-    this.state = {
-      title: title || '',
-      content: content || '',
-    }
-  }
+class NodeEditor extends React.Component {
   onOK = () => {
     console.warn('on ok');
     this.props.onOK(true);
@@ -36,36 +32,31 @@ export default class NodeEditor extends React.Component {
     this.dispatchTitle(e.target.value); 
   }
   dispatchTitle = debounce((title) => {
-    this.setState({title});
     this.props.onTitleChanged(title);
   }, 300)
   onContentChanged = (e) => {
     this.dispatchContent(e.target.value);
   }
   dispatchContent = debounce((content) => {
-    this.setState({content});
     this.props.onContentChanged(content);
-  }, 300)
-  searchPointByTitle = debounce(title => {
-    this.props.searchPointByTitle(title);
   }, 300)
   onOpenPointDrawer = () => {
     this.props.openPointEditor();
   }
-  onPointSelected = (id) => {
-    this.props.onPointSelected(id);
-  }
   render() {
-    const { visible, code, mode, path, range, point } = this.props;
-    const { title, content } = this.state;
-    const rangeText = range ? `from line ${range[0][0] + 1} ch ${range[0][1] + 1} to line ${range[1][0] + 1} ch ${range[1][1] + 1}` : ''; 
-    const noBorder = { content: { border: 'none' }};
-    return (
+    const { editing, pointTitle } = this.props;
+    const { title, content, code, mode, path, range } = editing || {};
+    let rangeText = '';
+    if (range) {
+      const [[fLine, fCh], [tLine, tCh]] = range;
+      rangeText = `from line ${fLine + 1} ch ${fCh + 1} to line ${tLine + 1} ch ${tCh + 1}`; 
+    }
+   return (
       <Drawer
         closable={false}
-        destroyOnClose={false}
+        destroyOnClose={true}
         maskClosable={false}
-        visible={visible}
+        visible={editing !== undefined}
         width={620}
         title="Node Editor"
         className="editor-node"
@@ -73,13 +64,13 @@ export default class NodeEditor extends React.Component {
         <Item title="Related Point" style={noBorder}>
           <Row>
             <Col span={16}>
-              <div className="plain-text with-border">{point.currentPoint && point.currentPoint.title || ''}</div>
+              <div className="plain-text with-border">{pointTitle}</div>
             </Col>
             <Col span={7} offset={1}>
               <Button size="large" onClick={this.onOpenPointDrawer}>Create New</Button>
             </Col>
           </Row>
-          <PointDrawer {...point}/>
+          <PointDrawer location={openFromNode}/>
         </Item>
         <PlainItem title="File Path" value={path} />
         <PlainItem title="Selected Range" value={rangeText} />
@@ -120,3 +111,35 @@ export default class NodeEditor extends React.Component {
     );
   }
 }
+
+function mapStateToProps(state) {
+  const { node, point } = state;
+  const editing = node.editing;
+  const currentPoint = point.points[point.current];
+  const pointTitle = currentPoint ? currentPoint.title : '';
+  return { editing, pointTitle };
+}
+
+function mapDispatchToProps(dispatch) {
+  return {
+    onTitleChanged(title) {
+      dispatch(createAction('node/setEditing', { title }));
+    },
+    onContentChanged(content) {
+      dispatch(createAction('node/setEditing', { content }));
+    },
+    onOK(isValid) {
+      if (isValid) {
+        dispatch(createAction('node/createNode', undefined));
+      }
+    },
+    onCancel() {
+      dispatch(createAction('node/finishEditing', undefined));
+    },
+    openPointEditor() {
+      dispatch(createAction('point/openPointEditor', openFromNode));
+    },
+  };
+}
+
+export default connect(mapStateToProps, mapDispatchToProps)(NodeEditor);

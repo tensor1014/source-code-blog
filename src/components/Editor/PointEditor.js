@@ -1,24 +1,19 @@
 import React from 'react';
 import { Drawer, Input, Row, Col, Button } from 'antd';
+import { connect } from 'dva';
 import ReactMarkdown from 'react-markdown';
 import debounce from 'lodash/debounce';
 import { Item, PlainItem } from './Item';
+import { createAction } from '../../models/helper';
 
 const { TextArea } = Input
 const modeMap = {
   1: 'Create Point',
   2: 'Update Point',
 };
+const noBorder = { content: { border: 'none' }};
 
-export default class PointEditor extends React.Component {
-  constructor(props) {
-    super(props);
-    const { title, content } = this.props;
-    this.state = {
-      title: title || '',
-      content: content || '',
-    }
-  }
+class PointEditor extends React.Component {
   onOK = () => {
     this.props.onOK(true);
   }
@@ -29,26 +24,23 @@ export default class PointEditor extends React.Component {
     this.dispatchTitle(e.target.value);
   }
   dispatchTitle = debounce((title) => {
-    this.setState({title});
     this.props.onTitleChanged(title);
   }, 300)
   onContentChanged = (e) => {
     this.dispatchContent(e.target.value);
   }
   dispatchContent = debounce((content) => {
-    this.setState({content});
     this.props.onContentChanged(content);
   })
   render() {
-    const { visible, mode, repoName, relations } = this.props;
-    const { title, content } = this.state;
-    const noBorder = { content: { border: 'none' }};
+    const { editing, location } = this.props;
+    const { title, content, mode, relations, openFrom, repoName } = editing || {};
     return (
       <Drawer
         closable={false}
-        destroyOnClose={false}
+        destroyOnClose={true}
         maskColosable={false}
-        visible={visible}
+        visible={location === openFrom && editing !== undefined}
         width={500}
         title="Point Editor"
         className="editor-node"
@@ -89,3 +81,28 @@ export default class PointEditor extends React.Component {
 
   }
 }
+
+function mapStateToProps(state) {
+  const { editing } = state.point;
+  return { editing };
+}
+
+function mapDispatchToProps(dispatch) {
+  return {
+    onOK(isValid) {
+      dispatch(createAction('point/createPoint',  undefined));
+    },
+    onCancel() {
+      dispatch(createAction('point/finishEditing', undefined)); 
+    },
+    onTitleChanged(title) {
+      dispatch(createAction('point/setEditing', { title }));
+    },
+    onContentChanged(content) {
+      dispatch(createAction('point/setEditing', { content }));
+    },
+  };
+}
+
+export default connect(mapStateToProps, mapDispatchToProps)(PointEditor);
+

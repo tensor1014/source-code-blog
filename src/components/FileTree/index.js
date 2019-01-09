@@ -1,4 +1,5 @@
 import React from 'react';
+import { connect } from 'dva';
 import { Treebeard } from 'react-treebeard';
 import decorators from './decorators';
 import animations from './animations';
@@ -37,5 +38,15 @@ class FileTree extends React.Component {
   }
 }
 
-export default FileTree;
+function mapStateToProps(state) {
+  return { tree: state.file.tree };
+}
+function mapDispatchToProps(dispatch) {
+  return {
+    onFileChanged(path) {
+      dispatch({ type: 'file/getFile', payload: path });
+    }
+  };
+}
+export default connect(mapStateToProps, mapDispatchToProps)(FileTree);
 

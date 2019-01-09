@@ -26,3 +26,7 @@
   - `yarn intall`
   - `yarn start`
 
+## Todo
+- 将 components 定位为 containers, 直接获取 state，将reducer中的一些逻辑抽到 mapStateToProps 中来，减少无谓render调用
+- 重新定义state结构，{ editing, current, list }
+- state.file.autoScroll 实现好诡异
