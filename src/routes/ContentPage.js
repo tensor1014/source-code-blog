@@ -22,13 +22,13 @@ class ContentPage extends React.Component {
     return (
       <Layout className="content-page"> 
         <Header className="content-page-header">
-          header
+          <h2>{this.props.repoUrl}</h2>
         </Header>
-        <Layout style={{height: 700}}>
+        <Layout style={{height: 835}}>
           <Sider width={300} style={{overflow: 'auto'}}>
             <FileTree />
           </Sider>
-          <Content style={{height: 700}}>
+          <Content style={{height: 835}}>
             <Code />
             <NodeEditor/> 
             <PointEditor location={openFromContent} />
@@ -41,7 +41,8 @@ class ContentPage extends React.Component {
 } 
 
 function mapStateToProps(state) {
-  return { isEmpty: state.repository.current === undefined };
+  const repoUrl = state.repository.current && state.repository.current.url || '';
+  return { isEmpty: state.repository.current === undefined, repoUrl };
 }
 function mapDispatchToProps(dispatch) {
   return {

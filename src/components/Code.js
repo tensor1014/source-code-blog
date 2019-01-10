@@ -6,17 +6,19 @@ import debounce from 'lodash/debounce';
 import difference from 'lodash/difference';
 import CodeMirror from 'codemirror';
 import MarkdownIt from 'markdown-it';
-import 'codemirror/addon/fold/foldcode';
-import 'codemirror/addon/fold/foldgutter';
-import 'codemirror/addon/fold/brace-fold';
-import 'codemirror/addon/fold/indent-fold';
+import { Select } from 'antd';
+// import 'codemirror/addon/fold/foldcode';
+// import 'codemirror/addon/fold/foldgutter';
+// import 'codemirror/addon/fold/brace-fold';
+// import 'codemirror/addon/fold/indent-fold';
 // import ReactCodeMirror from 'react-codemirror';
 import './Code.less';
-import 'codemirror/mode/go/go';
-import 'codemirror/mode/javascript/javascript';
+// import 'codemirror/mode/go/go';
+// import 'codemirror/mode/javascript/javascript';
 import 'codemirror/mode/clike/clike';
 
 const md = new MarkdownIt();
+const { Option } = Select;
 
 const modes = {
   go: 'go',
@@ -25,20 +27,18 @@ const modes = {
 }
 
 class Code extends React.Component {
-  widgets = {};
-  nodeIds = [];
   constructor(props) {
     super(props);
     this.state = {
       readOnly: true,
       mode: modes.java,
     };
-    this.widgets = {};
+    this.widget = undefined;
+    this.node = undefined;
     this.instance = undefined;
   };
   componentDidUpdate() {
     this._updateWidgets();
-    this._autoScroll();
   } 
   toggleReadOnly = () => {
     this.setState({
@@ -56,7 +56,6 @@ class Code extends React.Component {
     if (data.ranges && data.ranges.length > 0) {
       const from = data.ranges[0].from();
       const to = data.ranges[0].to();
-      console.warn(`select from line ${from.line} ch ${from.ch} to line ${to.line} ch ${to.ch}`);
       if (from.line === to.line && from.ch === to.ch) {
         return
       }
@@ -69,20 +68,13 @@ class Code extends React.Component {
     }
   }, 300)
 
-  onCodeScroll = debounce((editor, data) => {
-    //  暂时无此需求
-    /* const rect = this.instance.getWrapperElement().getBoundingClientRect();
-    const topVisibleLine = editor.lineAtHeight(rect.top, "window");
-    const bottomVisibleLine = editor.lineAtHeight(rect.bottom, "window");
-    console.warn('top visible line:', topVisibleLine, 'bottom visible line', bottomVisibleLine); */
-  }, 300)
   onEditorDidMount = (editor) => {
     this.instance = editor;
     this._updateWidgets();
   }
   render() {
     const { readOnly, mode } = this.state;
-    const { code, path } = this.props;
+    const { code, path, cPointId, points } = this.props;
     const options = {
       lineNumbers: true,
       foldGutter: true,
@@ -90,16 +82,24 @@ class Code extends React.Component {
       readOnly,
       mode,
     };
+    const pTitle = points && points[cPointId] && points[cPointId].title || ''; 
+    console.warn(cPointId);
     return (
       <div>
-        <div className="coder-file-path">{path}</div>
+        <div className="coder-file-path">
+          <code>{path}</code>
+          <Select value={cPointId} style={{ width: 220, marginLeft: 600 }} onChange={this.props.onPointChanged}>
+            {Object.values(points).map(p => (
+              <Option key={p.id} value={p.id}>{p.title}</Option>
+            ))}
+          </Select>
+        </div>
         <ReactCodeMirror2 
           value={code}
           options={options}
           onChange={this.onCodeChange}
           onBeforeChange={this.onCodeBeforeChange}
           onSelection={this.onCodeSelection}
-          onScroll={this.onCodeScroll}
           editorDidMount={this.onEditorDidMount}
         />
       </div>
@@ -107,22 +107,23 @@ class Code extends React.Component {
   }
   _updateWidgets() {
     if (this.instance) {
-      const { nodes } = this.props;
-      const nodeIds2 = Object.keys(this.props.nodes);
-      const nodeIds = Object.keys(this.widgets);
-      for (let id of difference(nodeIds2, nodeIds)) {
-        const node = nodes[id];
-        if (node) {
-          const { range, title, content } = node;
-          const [[from], [to]] = range;
-          const html = md.render(title) + md.render(content);
-          this.widgets[id] = this._addWidget(this.intance, html, from);
-          this._markSelectionLines(from, to);
+      const { node } = this.props;
+      if (node && (!this.node || node.id !== this.node.id)) {
+        if (this.widget) {
+          this.widget.clear();
+          this.widget = undefined;
         }
-      }
-      for (let id of difference(nodeIds, nodeIds2)) {
-        this.widgets[id].clear();
-        delete this.widgets[id];
+        if (this.node) {
+          const [[oldFrom], [oldTo]] = this.node.range;
+          this._unMarkSelectionLines(oldFrom, oldTo);
+        }
+        const { range, title, content } = node;
+        const [[from], [to]] = range;
+        const html = md.render(title) + md.render(content);
+        this.widget = this._addWidget(this.intance, html, from);
+        this._markSelectionLines(from, to);
+        this._autoScroll(from, to);
+        this.node = node;
       }
     }
   }
@@ -140,6 +141,7 @@ class Code extends React.Component {
   }
   _markSelectionLines(from, to) {
     if (this.instance) {
+      console.warn('mark from:', from, ' to:', to);
       for (let i = from; i <= to; i++) {
         if (i === from) {
           this.instance.addLineClass(i, 'background', 'reader-code-selected');
@@ -153,33 +155,38 @@ class Code extends React.Component {
       } 
     }
   }
-  _autoScroll() {
-    if (this.props.autoScroll && this.instance) {
-      console.warn('scroll to line: ', this.props.line);
-      this.instance.scrollIntoView(CodeMirror.Pos(this.props.line, 0));
-      this.props.onAutoScrollDone();
+  _unMarkSelectionLines(from, to) {
+    if (this.instance) {
+      console.warn('un mark from:', from, ' to:', to);
+      for (let i = from; i <= to; i++) {
+        if (i === from) {
+          this.instance.removeLineClass(i, 'background', 'reader-code-selected');
+        } else if (i === to) {
+          if (i !== 0) {
+            this.instance.removeLineClass(i, 'background', 'reader-code-selected');
+          }
+        } else {
+          this.instance.removeLineClass(i, 'background', 'reader-code-selected');
+        }
+      } 
+    }
+  }
+  _autoScroll(fromLine, toLine) {
+    if (this.instance) {
+      console.warn('scroll to line from:', fromLine, ' to:', toLine);
+      this.instance.scrollIntoView({
+        from: CodeMirror.Pos(fromLine, 0),
+        to: CodeMirror.Pos(toLine, 0),
+      }, 50);
     }
   } 
 }
 function mapStateToProps(state) {
-  const { node, point, file } = state;
-  const { code, path } = file;
-  const nodes = Object.values(point.points)
-    .reduce((obj, p) => {
-      for (let id of p.relations) {
-        const n = node.nodes[id];
-        if (n && n.path === path) {
-          obj[n.id] = n;
-        }
-      }
-      return obj;
-    }, {});
-    let line = 0;
-    let autoScroll = file.autoScroll;
-    if (node.nodes && node.current && file.autoScroll) {
-      [[line]]= node.nodes[node.current].range;
-    }
-  return { code, path, nodes, line, autoScroll };
+  const { code, path } = state.file;
+  const { points, current } = state.point;
+  let node = state.node.nodes[state.node.current];
+  node = node && node.path === path ? node : undefined;
+  return { code, node, path, points, cPointId: current };
 }
 
 function mapDispatchToProps(dispatch) {
@@ -188,8 +195,8 @@ function mapDispatchToProps(dispatch) {
       const range = [[from.line, from.ch], [to.line, to.ch]];
       dispatch(createAction('node/openNodeEditor', {code, range, mode: 1}));
     },
-    onAutoScrollDone() {
-      dispatch(createAction('file/scrollDone', undefined));
+    onPointChanged(pointId) {
+      dispatch(createAction('point/setCurrent', pointId));
     }
   };
 }
